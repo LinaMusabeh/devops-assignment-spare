@@ -1,4 +1,4 @@
-name: CI/CD
+name: testing PR
 
 on:
   pull_request:
