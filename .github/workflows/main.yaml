@@ -1,0 +1,105 @@
+name: CI/CD
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+
+env:
+  IMAGE_NAME: ghcr.io/${{ github.repository }}
+
+permissions:
+  contents: read
+  packages: write
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check out code
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build Docker image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          push: false
+          tags: ${{ env.IMAGE_NAME }}:test
+          load: true   # makes the image available to docker-compose below
+
+      - name: Start the stack
+        run: docker compose -f docker-compose.yml up -d
+
+      - name: Wait for API to be healthy
+        run: |
+          for i in {1..30}; do
+            if curl -sf http://localhost:8080/health; then
+              echo "API is healthy"
+              exit 0
+            fi
+            echo "Waiting for API... ($i)"
+            sleep 2
+          done
+          echo "API failed to become healthy in time"
+          docker compose logs
+          exit 1
+
+      - name: Run smoke test
+        run: |
+          # Health check (already covered by the wait step, but re-confirm)
+          curl -sf http://localhost:8080/health
+
+          # Create a user, capture the response to grab its ID
+          USER_RESPONSE=$(curl -sf -X POST http://localhost:8080/users \
+            -H "Content-Type: application/json" \
+            -d '{"name": "smoke-test-user", "email": "smoke@test.com"}')
+
+          echo "User created: $USER_RESPONSE"
+
+          # Extract the user's id from the JSON response (requires jq)
+          USER_ID=$(echo "$USER_RESPONSE" | jq -r '.id')
+
+          if [ -z "$USER_ID" ] || [ "$USER_ID" == "null" ]; then
+            echo "Failed to extract user ID from response"
+            exit 1
+          fi
+
+          # List users, confirm the endpoint responds
+          curl -sf http://localhost:8080/users
+
+          # Create a notification for that user
+          curl -sf -X POST http://localhost:8080/notifications \
+            -H "Content-Type: application/json" \
+            -d "{\"user_id\": \"$USER_ID\", \"message\": \"smoke test notification\"}"
+
+          # List notifications for that user, confirm it worked
+          curl -sf "http://localhost:8080/notifications?user_id=$USER_ID"
+
+          echo "Smoke test passed"
+
+      - name: Tear down stack
+        if: always()
+        run: docker compose down
+
+      - name: Log in to GitHub Container Registry
+        if: github.event_name == 'push'
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Push image with tags
+        if: github.event_name == 'push'
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          push: true
+          tags: |
+            ${{ env.IMAGE_NAME }}:latest
+            ${{ env.IMAGE_NAME }}:${{ github.sha }}
