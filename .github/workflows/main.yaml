@@ -12,12 +12,13 @@ permissions:
 
 jobs:
   build-and-test:
+  # choosing the runner
     runs-on: ubuntu-latest
-
+  # checking out the code to the runner
     steps:
       - name: Check out code
         uses: actions/checkout@v4
-
+# ensure that the repo and the image name are in lower case (thats how github repo works)
       - name: Set lower case owner name and image tag
         run: |
           echo "OWNER_LC=${OWNER,,}" >> "$GITHUB_ENV"
@@ -25,10 +26,10 @@ jobs:
         env:
           OWNER: '${{ github.repository_owner }}'
           REPO_NAME: '${{ github.event.repository.name }}'
-
+# setup docker inside the runner
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
-
+# building the image (but not pushing it yet since thats a PR test only)
       - name: Build Docker image
         uses: docker/build-push-action@v6
         with:
@@ -36,14 +37,14 @@ jobs:
           push: false
           tags: ${{ env.IMAGE_NAME }}:latest
           load: true   # makes the image available to docker-compose below
-
+# building the stack from the yaml file, and providing dummy env vars to use 
       - name: Start the stack
         run: docker compose -f docker-compose.yml up -d
         env:
           DB_NAME: testdb
           DB_USER: testuser
           DB_PASSWORD: testpass
-
+# the second step here is to ensure that the api is running by sending a request to it 
       - name: Wait for API to be healthy
         run: |
           for i in {1..30}; do
@@ -57,7 +58,7 @@ jobs:
           echo "API failed to become healthy in time"
           docker compose logs
           exit 1
-
+# running full smoke tests with all the endpoints, the pipe FAILS if one of them fails
       - name: Run smoke test
         run: |
           # Health check (already covered by the wait step, but re-confirm)
@@ -93,11 +94,11 @@ jobs:
           curl -s -w "\nHTTP_STATUS:%{http_code}" "http://localhost:8080/notifications?user_id=$USER_ID"
 
           echo "Smoke test passed"
-
+# stop the stack after running the tests full, and get ready to push the changes 
       - name: Tear down stack
         if: always()
         run: docker compose down
-
+# when pushing or merging the changes, we need to push an image to the registry 
       - name: Log in to GitHub Container Registry
         if: github.event_name == 'push'
         uses: docker/login-action@v3
@@ -105,7 +106,7 @@ jobs:
           registry: ghcr.io
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
-
+# adding a name and a tag to the image
       - name: Push image with tags
         if: github.event_name == 'push'
         uses: docker/build-push-action@v6

@@ -22,5 +22,5 @@ USER appuser
 ENV PORT=8080
 EXPOSE 8080
 
-# the actual run of the app, not using npm to make it one process 
+# the actual run of the app
 CMD ["node", "src/index.js"]
