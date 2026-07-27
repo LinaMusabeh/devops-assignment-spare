@@ -20,7 +20,9 @@ jobs:
 
       - name: Set lower case owner name and image tag
         run: |
-          echo "IMAGE_NAME=ghcr.io/${GITHUB_REPOSITORY,,}" >> $GITHUB_ENV
+          echo "OWNER_LC=${OWNER,,}" >> ${GITHUB_ENV}
+        env:
+          OWNER: '${{ github.LinaMusabeh }}'
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
