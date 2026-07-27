@@ -82,12 +82,15 @@ jobs:
           curl -sf http://localhost:8080/users
 
           # Create a notification for that user
-          curl -sf -X POST http://localhost:8080/notifications \
+          echo "Creating notification..."
+          NOTIF_RESPONSE=$(curl -s -w "\nHTTP_STATUS:%{http_code}" -X POST http://localhost:8080/notifications \
             -H "Content-Type: application/json" \
-            -d "{\"user_id\": \"$USER_ID\", \"message\": \"smoke test notification\"}"
+            -d "{\"user_id\": \"$USER_ID\", \"message\": \"smoke test notification\"}")
+          echo "Notification response: $NOTIF_RESPONSE"
 
           # List notifications for that user, confirm it worked
-          curl -sf "http://localhost:8080/notifications?user_id=$USER_ID"
+          echo "Listing notifications..."
+          curl -s -w "\nHTTP_STATUS:%{http_code}" "http://localhost:8080/notifications?user_id=$USER_ID"
 
           echo "Smoke test passed"
 
@@ -110,5 +113,5 @@ jobs:
           context: .
           push: true
           tags: |
-            ${{ env.IMAGE_NAME }}:
+            ${{ env.IMAGE_NAME }}:latest
             ${{ env.IMAGE_NAME }}:${{ github.sha }}
