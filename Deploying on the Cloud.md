@@ -13,7 +13,7 @@ Make sure that the cli is using the same region where the repo is created (very 
 also make sure that tags are immutable, for traceability purposes 
 
 
-### Image deployment on Elastic Container Service (EKS)
+### Image deployment on Elastic Container Service (ECS)
 
 we will create a cluster for the stack, one service for the api and the other for the database.
 
@@ -72,3 +72,9 @@ selecting the task definition we have just created
 turning on this option is very effective 
 
 ![alt text](screenshots/image-11.png)
+
+## Mistakes I've fallen into (don't)
+
+- make sure that you allow NFS traffic to the EFS by editing the security group inbound rules and adding the security group you created in the first step as the source of the traffic
+
+- create the path `/var/lib/postgresql/data` inside the EFS during the task definition or by mounting a small EC2 instances 
