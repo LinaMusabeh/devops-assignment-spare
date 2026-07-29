@@ -1,5 +1,7 @@
 # Container Deployment on AWS
 
+![](architecture-cloud.png)
+
 - we need aws cli version 2 and the latest docker
 - authenticate using the cli `aws login`
 
